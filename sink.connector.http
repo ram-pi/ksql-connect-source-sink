@@ -1,0 +1,33 @@
+@baseUrl = http://localhost:8083
+### PLUGIN LIST
+GET {{baseUrl}}/connector-plugins HTTP/1.1
+
+### CREATE MARIADB SOURCE CONNECTOR
+PUT {{baseUrl}}/connectors/mariadb-sink/config HTTP/1.1
+Content-Type: application/json
+
+{
+	"connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+	"connection.url": "jdbc:mariadb://mariadb:3306/demo?user=root&password=root",
+	"connection.attemps": 3,
+	"topics": "devices_on",
+	"dialect.name": "MySqlDatabaseDialect",
+	"key.converter": "io.confluent.connect.avro.AvroConverter",
+	"key.converter.schema.registry.url": "http://schema-registry:8081",
+	"value.converter": "io.confluent.connect.avro.AvroConverter",
+	"value.converter.schema.registry.url": "http://schema-registry:8081",
+	"table.name.format": "device",
+	"pk.mode": "record_key",
+	"pk.fields": "device_id",
+	"auto.evolve": "true",
+	"insert.mode": "upsert"
+}
+
+### Get connectors
+GET {{baseUrl}}/connectors
+
+### GET CONNECTOR STATUS
+GET {{baseUrl}}/connectors/mariadb-sink/status
+
+### Delete connector
+DELETE {{baseUrl}}/connectors/mariadb-sink HTTP/1.1

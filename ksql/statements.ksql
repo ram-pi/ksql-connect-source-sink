@@ -1,0 +1,95 @@
+SET 'auto.offset.reset' = 'earliest';
+
+-- create source connector
+-- create source connector 'mariadb-source' with (
+--     "connector.class" = "io.confluent.connect.jdbc.JdbcSourceConnector",
+-- 	"connection.url" = "jdbc:mariadb://mariadb:3306/demo?user=root&password=root",
+-- 	"connection.attemps" = 3,
+-- 	"schema.pattern" = "",
+-- 	"table.whitelist" = "device",
+-- 	"dialect.name" = "MySqlDatabaseDialect",
+-- 	"validate.non.null" = "false",
+-- 	"mode" = "timestamp+incrementing",
+-- 	"timestamp.column.name" = "last_update",
+-- 	"incrementing.column.name" = "device_id",
+-- 	"poll.interval.ms" = "60000",
+-- 	"transforms" ="dropPrefix,copyFieldToKey,extractKeyFromStruct",
+-- 	"transforms.dropPrefix.type" = "org.apache.kafka.connect.transforms.RegexRouter",
+--     "transforms.dropPrefix.regex" = "(.*)",
+-- 	"transforms.copyFieldToKey.type" = "org.apache.kafka.connect.transforms.ValueToKey",
+--     "transforms.copyFieldToKey.fields" = "device_id",
+-- 	"transforms.extractKeyFromStruct.type" = "org.apache.kafka.connect.transforms.ExtractField$Key",
+--     "transforms.extractKeyFromStruct.field" = "device_id",
+-- 	"key.converter" = "io.confluent.connect.avro.AvroConverter",
+-- 	"key.converter.schema.registry.url" = "http://schema-registry:8081",
+-- 	"value.converter"= "io.confluent.connect.avro.AvroConverter",
+-- 	"value.converter.schema.registry.url" = "http://schema-registry =8081",
+--     "transforms.dropPrefix.replacement" = "devices"  
+-- );
+
+-- drop topic if exists
+drop stream if exists devices;
+drop stream if exists message;
+
+-- create devices stream
+CREATE OR REPLACE STREAM devices
+with (
+    kafka_topic = 'devices',
+    value_format = 'AVRO',
+    key_format = 'AVRO',
+    timestamp='is_available_since'
+    --,timestamp_format='yyyy-MM-dd''T''HH:mm:ss.SSS' -- 2022-08-18T08:47:57.000
+);
+
+-- create message stream (and the backed topic)
+CREATE OR REPLACE STREAM message (
+    device_id INT KEY,
+    event_timestamp TIMESTAMP
+) WITH (
+    kafka_topic = 'message',
+    partitions = 1,
+    value_format = 'AVRO',
+    key_format = 'AVRO',
+    timestamp='event_timestamp'
+    --,timestamp_format='yyyy-MM-dd''T''HH:mm:ssX' -- 2022-08-16T11:20:00+02
+);
+
+-- insert data
+INSERT INTO message (device_id, event_timestamp) VALUES (1, '2022-08-18T16:20:00');
+
+-- using within clause for mathing 3 days trip for each device
+create stream devices_on 
+with (kafka_topic = 'devices_on')
+as 
+SELECT
+    t.device_id as device_id,
+    'updated by ksql' as note,
+    d.is_available_since is_available_since,
+    d.last_update as last_update,
+    1 as is_active,
+    --(t.event_timestamp - d.is_available_since) as inactive_counter
+    --PARSE_DATE(FORMAT_TIMESTAMP(d.is_available_since, 'yyyy-MM-dd'), 'yyyy-MM-dd') - PARSE_DATE(FORMAT_TIMESTAMP(t.event_timestamp, 'yyyy-MM-dd'), 'yyyy-MM-dd')
+    UNIX_TIMESTAMP(t.event_timestamp) - UNIX_TIMESTAMP(d.is_available_since) inactive_counter
+FROM message t
+INNER JOIN devices d
+  WITHIN 3 DAYS
+  ON t.device_id = d.device_id
+EMIT CHANGES;
+
+-- create sink connector
+-- create sink connector "mariadb-sink" with (
+--     "connector.class" = "io.confluent.connect.jdbc.JdbcSinkConnector",
+-- 	"connection.url" = "jdbc:mariadb://mariadb:3306/demo?user=root&password=root",
+-- 	"connection.attemps" = 3,
+-- 	"topics" = "devices_on",
+-- 	"dialect.name" = "MySqlDatabaseDialect",
+-- 	"key.converter" = "io.confluent.connect.avro.AvroConverter",
+-- 	"key.converter.schema.registry.url" = "http://schema-registry:8081",
+-- 	"value.converter" = "io.confluent.connect.avro.AvroConverter",
+-- 	"value.converter.schema.registry.url" = "http://schema-registry:8081",
+-- 	"table.name.format" = "device",
+-- 	"pk.mode" = "record_key",
+-- 	"pk.fields" = "device_id",
+-- 	"auto.evolve" = "true",
+-- 	"insert.mode" = "upsert"
+-- );

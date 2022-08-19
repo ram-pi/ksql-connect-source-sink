@@ -1,0 +1,50 @@
+@baseUrl = http://localhost:8083
+
+### PLUGIN LIST
+GET {{baseUrl}}/connector-plugins HTTP/1.1
+
+### CREATE MARIADB SOURCE CONNECTOR
+PUT {{baseUrl}}/connectors/mariadb-source/config HTTP/1.1
+Content-Type: application/json
+
+{
+	"connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+	"connection.url": "jdbc:mariadb://mariadb:3306/demo?user=root&password=root",
+	"connection.attemps": 3,
+	"schema.pattern": "",
+	"table.whitelist": "device",
+	"dialect.name": "MySqlDatabaseDialect",
+	"validate.non.null": "false",
+	"mode": "timestamp+incrementing",
+	"timestamp.column.name": "last_update",
+	"incrementing.column.name": "device_id",
+	"_query": "select device_id, last_update, is_available_since from device where is_active = 0",
+	"poll.interval.ms": "60000",
+	"_transforms":"dropPrefix,copyFieldToKey,extractKeyFromStruct,removeKeyFromValue",
+	"transforms":"dropPrefix,copyFieldToKey,extractKeyFromStruct",
+	"transforms.dropPrefix.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.dropPrefix.regex": "(.*)",
+	"transforms.copyFieldToKey.type": "org.apache.kafka.connect.transforms.ValueToKey",
+    "transforms.copyFieldToKey.fields": "device_id",
+	"transforms.extractKeyFromStruct.type": "org.apache.kafka.connect.transforms.ExtractField$Key",
+    "transforms.extractKeyFromStruct.field": "device_id",
+	"_transforms.removeKeyFromValue.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+    "_transforms.removeKeyFromValue.blacklist": "device_id",
+	"_key.converter": "org.apache.kafka.connect.converters.IntegerConverter",
+	"key.converter": "io.confluent.connect.avro.AvroConverter",
+	"key.converter.schema.registry.url": "http://schema-registry:8081",
+	"_value.converter": "org.apache.kafka.connect.json.JsonConverter",
+	"value.converter": "io.confluent.connect.avro.AvroConverter",
+	"_value.converter.schemas.enable": "false",
+	"value.converter.schema.registry.url": "http://schema-registry:8081",
+    "transforms.dropPrefix.replacement": "devices"
+}
+
+### Get connectors
+GET {{baseUrl}}/connectors
+
+### GET CONNECTOR STATUS
+GET {{baseUrl}}/connectors/mariadb-source/status
+
+### Delete connector
+DELETE {{baseUrl}}/connectors/mariadb-source HTTP/1.1
