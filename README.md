@@ -29,7 +29,7 @@ Connect REST APIs will be exposed at [connect](http://localhost:8088), you can c
 
 ## 2. Create source connector
 
-Open the file `source.connector.http` with VSCode and send the request for creating the connector.
+Open the file `source.jdbc.connector.http` with VSCode and send the request for creating the connector.
 
 ## 3. Run KSQL Script
 
@@ -39,4 +39,8 @@ docker exec ksqldb-cli bash -c "echo RUN SCRIPT /ksql/statements.ksql | ksql htt
 
 ## 4. Create sink connector
 
-Open the file `sink.connector.http` with VSCode and send the request for creating the connector.
+Open the file `sink.jdbc.connector.http` with VSCode and send the request for creating the connector.
+
+## 5. Create sink connector
+
+Open the file `sink.elastic.connector.http` with VSCode and send the request for creating the connector.
